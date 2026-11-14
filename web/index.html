@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TariFund — crowdfunding with automatic refunds on Tari Ootle</title>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --panel2:#1e222c; --ink:#e8eaf0; --mut:#9aa3b2; --line:#2a2f3c; --acc:#ffb300; --ok:#3fb950; --bad:#f85149; --blue:#58a6ff; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  a { color:var(--blue); }
+  .wrap { max-width:960px; margin:0 auto; padding:0 16px 64px; }
+  header { padding:28px 0 8px; }
+  h1 { margin:0; font-size:32px; letter-spacing:-.5px; }
+  h1 span { color:var(--acc); }
+  .sub { color:var(--mut); margin:6px 0 0; }
+  .badge { display:inline-block; font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; padding:3px 9px; border-radius:99px; border:1px solid var(--acc); color:var(--acc); vertical-align:middle; margin-left:10px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px; margin-top:16px; }
+  h2 { font-size:19px; margin:0 0 10px; }
+  h3 { font-size:16px; margin:0 0 8px; }
+  .mut { color:var(--mut); }
+  .small { font-size:13px; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .clock { font-size:15px; }
+  .clock b { font-size:20px; color:var(--acc); }
+  button { background:var(--acc); color:#111; border:0; border-radius:8px; padding:9px 14px; font-weight:700; cursor:pointer; font-size:14px; }
+  button.ghost { background:transparent; color:var(--ink); border:1px solid var(--line); }
+  button.danger { background:transparent; color:var(--bad); border:1px solid var(--bad); }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  input, select { background:var(--panel2); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:9px 10px; font-size:14px; }
+  input[type=number] { width:130px; }
+  .personas { display:flex; gap:8px; flex-wrap:wrap; }
+  .persona { border:1px solid var(--line); border-radius:10px; padding:10px 12px; cursor:pointer; min-width:130px; background:var(--panel2); }
+  .persona.active { border-color:var(--acc); outline:1px solid var(--acc); }
+  .persona .bal { font-weight:700; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; margin-top:12px; }
+  .card { background:var(--panel2); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  .card h3 { font-size:17px; }
+  .status { font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:3px 9px; border-radius:99px; }
+  .st-open { background:#12330f; color:var(--ok); }
+  .st-funded { background:#0e2a4a; color:var(--blue); }
+  .st-failed { background:#3d0f0d; color:var(--bad); }
+  .st-claimed { background:#2c2a10; color:var(--acc); }
+  .bar { height:9px; background:#0a0c10; border-radius:99px; overflow:hidden; margin:10px 0 4px; border:1px solid var(--line); }
+  .bar > div { height:100%; background:var(--acc); }
+  .kv { display:flex; justify-content:space-between; font-size:14px; padding:2px 0; }
+  .kv span:first-child { color:var(--mut); }
+  .log { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:13px; background:#0a0c10; border:1px solid var(--line); border-radius:10px; padding:12px; max-height:260px; overflow:auto; white-space:pre-wrap; }
+  .log .ok { color:var(--ok); } .log .err { color:var(--bad); }
+  .toast { margin-top:10px; font-size:14px; min-height:20px; }
+  .toast.err { color:var(--bad); } .toast.ok { color:var(--ok); }
+  table { border-collapse:collapse; width:100%; font-size:14px; }
+  td, th { border-bottom:1px solid var(--line); padding:7px 6px; text-align:left; vertical-align:top; }
+  th { color:var(--mut); font-weight:600; }
+  code { background:#0a0c10; padding:1px 6px; border-radius:6px; font-size:13px; }
+  ol.steps li { margin-bottom:6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>TariFund<span>.</span><span class="badge">Simulation — no wallet, no real funds</span></h1>
+    <p class="sub">Crowdfunding with automatic refunds on Tari Ootle. A creator sets a goal and a
+    deadline. Goal reached → the creator claims the vault. Goal missed → every contributor
+    gets their money back. No custodian, no platform fee — the contract enforces it.</p>
+  </header>
+
+  <div class="panel">
+    <div class="row" style="justify-content:space-between">
+      <div class="clock">Ootle clock — current epoch <b id="epoch">–</b> <span class="mut small">(on Ootle, time is counted in epochs; the deadline is an epoch number)</span></div>
+      <div class="row">
+        <button class="ghost" id="adv1">+1 epoch</button>
+        <button class="ghost" id="adv10">+10 epochs</button>
+        <button class="ghost" id="jump">Jump to next deadline</button>
+        <button class="ghost" id="reset">Reset demo</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>How it works</h2>
+    <ol class="steps">
+      <li><b>Create</b> — pick a persona below, name the campaign, set a goal in TARI and a deadline epoch. <code>Campaign::new(title, goal, deadline)</code></li>
+      <li><b>Contribute</b> — anyone can contribute while the epoch is before the deadline. <code>campaign.contribute(account, amount)</code></li>
+      <li><b>Settle</b> — after the deadline, the creator claims the vault <i>only</i> if the goal was reached; otherwise each contributor refunds their own contribution in full. <code>campaign.claim()</code> / <code>campaign.refund(account)</code></li>
+    </ol>
+    <p class="mut small">This page is a walletless simulation of the TariFund Rust template
+    (<code>template/src/lib.rs</code>). It runs the same rules, with the same error messages,
+    so you can run the whole lifecycle in two minutes. The template itself is tested against the
+    real Ootle engine — see “How this maps to the template” below. Nothing here touches the Tari
+    network or any real funds.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Your demo wallet</h2>
+    <p class="mut small" style="margin-top:0">Pick a persona. Contributions come out of that persona's simulated balance; claims and refunds pay back into it. Demo balances only.</p>
+    <div class="personas" id="personas"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Start a campaign</h2>
+    <div class="row">
+      <input id="newTitle" type="text" maxlength="140" placeholder="Campaign title" style="flex:2; min-width:220px">
+      <input id="newGoal" type="number" min="1" step="1" placeholder="Goal (TARI)">
+      <input id="newDeadline" type="number" min="1" step="1" placeholder="Deadline epoch">
+      <button id="createBtn">Create campaign</button>
+    </div>
+    <p class="mut small">Deadline must be after the current epoch. Try: goal 100 TARI, deadline <span id="deadlineHint">–</span>.</p>
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Campaigns</h2>
+    <div class="cards" id="cards"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Event log — the Ootle call each step mirrors</h2>
+    <div class="log" id="log"></div>
+  </div>
+
+  <div class="panel">
+    <h2>How this maps to the on-chain template</h2>
+    <table>
+      <tr><th>Demo action</th><th>Template call</th><th>Rule enforced</th></tr>
+      <tr><td>Create campaign</td><td><code>Campaign::new</code></td><td>Title 1–140 bytes, goal &gt; 0, deadline in the future</td></tr>
+      <tr><td>Contribute</td><td><code>campaign.contribute</code></td><td>TARI only, amount &gt; 0, before deadline, campaign not claimed</td></tr>
+      <tr><td>Claim</td><td><code>campaign.claim</code></td><td>Creator only (access rule), after deadline, goal reached</td></tr>
+      <tr><td>Refund</td><td><code>campaign.refund</code></td><td>After deadline, goal missed, campaign not claimed; pays the contributor's own account</td></tr>
+    </table>
+    <p class="small">Engine tests (Rust, run against the real Ootle engine via <code>tari_template_test_tooling</code>): 10 tests — funded payout, full refunds, late contributions rejected, early/below-goal claims rejected, funded-campaign refunds rejected, creator-only claim, invalid campaigns rejected, per-contributor accumulation, and status lifecycle. Web simulation tests (Node): 10 tests mirroring the same cases.</p>
+    <h3>Honest limits</h3>
+    <ul class="small mut">
+      <li>Contribution amounts are public on chain, as with any Ootle vault deposit; contributor identities are account addresses.</li>
+      <li>The template has not been published to Esmeralda or mainnet yet and is not audited. The demo is a simulation; the on-chain path (Sapient wallet + publish) is the next step.</li>
+      <li>Refunds pay the account named at contribution time — in the live app that is always the contributor's own connected account.</li>
+      <li>There is no partial-funding payout and no milestone release by design: goal-or-refund is the whole point.</li>
+    </ul>
+    <p class="small">Built for the Tari November Build Contest (MVP). Source code (MIT): <a id="repoLink" href="https://github.com/0xfats/tarifund">github.com/0xfats/tarifund</a>. Built by an AI agent under its owner's direction.</p>
+  </div>
+</div>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

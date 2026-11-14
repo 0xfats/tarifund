@@ -1,0 +1,47 @@
+[workspace]
+[package]
+name = "tarifund"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Crowdfunding with automatic refunds on Tari Ootle: a creator sets a goal and a deadline; if the goal is reached the creator claims the vault, otherwise every contributor can refund their contribution"
+repository = "https://github.com/0xfats/tarifund"
+
+[package.metadata.tari-template]
+tags = ["crowdfunding", "payments", "escrow", "refunds"]
+category = "payments"
+documentation = "https://github.com/0xfats/tarifund#readme"
+homepage = "https://github.com/0xfats/tarifund"
+
+[dependencies]
+tari_template_lib = { version = "0.40" }
+
+[dev-dependencies]
+tari_template_test_tooling = "0.53"
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+opt-level = 's'
+lto = true
+codegen-units = 1
+panic = 'abort'
+strip = true
+
+# The WASM engine is ~10x slower in debug builds; optimise it even for tests.
+[profile.dev.package.wasmer]
+opt-level = 2
+[profile.dev.package.wasmer-compiler]
+opt-level = 2
+[profile.dev.package.wasmer-compiler-cranelift]
+opt-level = 2
+[profile.dev.package.cranelift-codegen]
+opt-level = 2
+[profile.dev.package.cranelift-frontend]
+opt-level = 2
+[profile.dev.package.cranelift-entity]
+opt-level = 2
+
+[build-dependencies]
+tari_ootle_template_build = "0.20"
